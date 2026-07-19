@@ -1,88 +1,86 @@
-<!DOCTYPE html>  
-<html lang="zh-TW">  
-<head>  
-    <meta charset="UTF-8">  
-    <title>註冊 - Winning Wood</title>  
-    <link rel="stylesheet" href="style.css">  
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>  
-</head>  
-<body>  
-    <header>  
-        <a href="index.html" class="logo">Winning Wood</a>  
-        <nav><a href="login.html">返回登入</a></nav>  
-    </header>  
-  
-    <div class="container" style="max-width: 500px;">  
-        <div class="card">  
-            <h2 style="text-align: center; margin-bottom: 20px;">建立企業帳戶</h2>  
-            <div id="msgBox" class="alert"></div>  
-              
-            <form id="signupForm">  
-                <div class="form-group">  
-                    <label>電子郵件 (Email)</label>  
-                    <input type="email" id="email" required>  
-                </div>  
-                <div class="form-group">  
-                    <label>密碼 (Password)</label>  
-                    <input type="password" id="password" required minlength="6">  
-                </div>  
-                <div class="form-group">  
-                    <label>聯絡人姓名 (Full Name)</label>  
-                    <input type="text" id="fullName" required>  
-                </div>  
-                <div class="form-group">  
-                    <label>聯絡電話 (Phone)</label>  
-                    <input type="text" id="phone" required>  
-                </div>  
-                <div class="form-group">  
-                    <label>公司名稱 (Company Name)</label>  
-                    <input type="text" id="companyName" required>  
-                </div>  
-                <button type="submit" class="btn-primary" style="width: 100%;">註冊並登入</button>  
-            </form>  
-        </div>  
-    </div>  
-  
-    <script src="supabase-init.js"></script>  
-    <script>  
-        document.getElementById('signupForm').addEventListener('submit', async (e) => {  
-            e.preventDefault();  
-            const msgBox = document.getElementById('msgBox');  
-            msgBox.className = 'alert';   
-            msgBox.innerText = '處理中，請稍候...';  
-  
-            const email = document.getElementById('email').value;  
-            const password = document.getElementById('password').value;  
-            const full_name = document.getElementById('fullName').value;  
-            const phone = document.getElementById('phone').value;  
-            const company_name = document.getElementById('companyName').value;  
-  
-            try {  
-                // 1. 建立 Auth 帳號  
-                const { data: authData, error: authError } = await supabaseClient.auth.signUp({  
-                    email, password  
-                });  
-                if (authError) throw authError;  
-  
-                const user = authData.user;  
-                if (user) {  
-                    // 2. 寫入客戶資料表  
-                    const { error: dbError } = await supabaseClient.from('customers').insert([  
-                        { auth_user_id: user.id, full_name, phone, company_name }  
-                    ]);  
-                      
-                    if (dbError) throw dbError;  
-  
-                    msgBox.className = 'alert success';  
-                    msgBox.innerText = '註冊成功！系統將自動為您轉跳...';  
-                      
-                    setTimeout(() => { window.location.href = 'dashboard.html'; }, 1500);  
-                }  
-            } catch (err) {  
-                msgBox.className = 'alert error';  
-                msgBox.innerText = '註冊失敗：' + err.message;  
-            }  
-        });  
-    </script>  
-</body>  
-</html>  
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>註冊 - Winning Wood Limited</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">Winning Wood Limited</div>
+        <nav>
+            <a href="index.html">首頁</a>
+            <a href="login.html">登入</a>
+        </nav>
+    </header>
+
+    <main style="display: flex; justify-content: center; align-items: center; min-height: 70vh;">
+        <div class="auth-container" style="background: #f9f9f9; padding: 30px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 100%; max-width: 400px;">
+            <h2 style="text-align: center; margin-bottom: 20px;">註冊帳號</h2>
+            <form id="signup-form">
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <label for="email" style="display: block; margin-bottom: 5px;">電子郵件</label>
+                    <input type="email" id="email" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <div class="input-group" style="margin-bottom: 20px;">
+                    <label for="password" style="display: block; margin-bottom: 5px;">密碼 (最少 6 個字元)</label>
+                    <input type="password" id="password" minlength="6" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+                </div>
+                <button type="submit" class="btn btn-large" style="width: 100%;">立即註冊</button>
+                
+                <p id="error-message" style="color: red; display: none; margin-top: 15px; text-align: center; font-size: 14px;"></p>
+                <p id="success-message" style="color: green; display: none; margin-top: 15px; text-align: center; font-size: 14px;">註冊成功！如果設定有開啟驗證，請前往信箱收信。</p>
+            </form>
+            <p style="text-align: center; margin-top: 20px;">已經有帳號？ <a href="login.html">按此登入</a></p>
+        </div>
+    </main>
+
+    <!-- 引入 Supabase JS 與初始化檔案 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-init.js"></script>
+    
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault(); // 阻止表單重整
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorMsg = document.getElementById('error-message');
+            const successMsg = document.getElementById('success-message');
+            const submitBtn = e.target.querySelector('button');
+            
+            // 重置訊息與按鈕狀態
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            submitBtn.textContent = '處理中...';
+            submitBtn.disabled = true;
+
+            // 呼叫 Supabase 註冊 API
+            const { data, error } = await supabase.auth.signUp({
+                email: email,
+                password: password
+            });
+
+            // 恢復按鈕狀態
+            submitBtn.textContent = '立即註冊';
+            submitBtn.disabled = false;
+
+            if (error) {
+                // 如果失敗，顯示錯誤訊息 (例如密碼太短、信箱已被註冊)
+                errorMsg.textContent = '註冊失敗：' + error.message;
+                errorMsg.style.display = 'block';
+            } else {
+                // 註冊成功
+                successMsg.style.display = 'block';
+                document.getElementById('signup-form').reset();
+                
+                // 成功後 2 秒自動跳轉至登入頁面
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 2000);
+            }
+        });
+    </script>
+</body>
+</html>
