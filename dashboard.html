@@ -1,0 +1,242 @@
+<!DOCTYPE html>  
+<html lang="zh-TW">  
+<head>  
+    <meta charset="UTF-8">  
+    <title>管理後台 - Winning Wood</title>  
+    <link rel="stylesheet" href="style.css">  
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>  
+</head>  
+<body>  
+    <header>  
+        <a href="index.html" class="logo">Winning Wood</a>  
+        <nav>  
+            <span id="userGreeting" style="margin-right: 15px; color: var(--text-gray);">載入中...</span>  
+            <button id="logoutBtn" class="btn-outline">登出</button>  
+        </nav>  
+    </header>  
+  
+    <div class="container">  
+        <div class="payment-notice">  
+            <strong>⚠️ 溫馨提示：</strong> 此網站只用作租借與紀錄，實際付款需線下安排。我們的業務代表將會在收到您的訂單後與您聯絡確認細節。  
+        </div>  
+  
+        <div style="display: flex; gap: 20px; flex-wrap: wrap;">  
+            <!-- 左側：新增租借訂單 -->  
+            <div class="card" style="flex: 1; min-width: 300px;">  
+                <h3>新增租借訂單</h3>  
+                <div id="formMsg" class="alert"></div>  
+                <form id="rentalForm">  
+                    <div class="form-group">  
+                        <label>選擇設備</label>  
+                        <select id="equipmentSelect" required>  
+                            <option value="">嘗試連線資料庫載入設備中...</option>  
+                        </select>  
+                    </div>  
+                    <div class="form-group">  
+                        <label>開始日期</label>  
+                        <input type="date" id="startDate" required>  
+                    </div>  
+                    <div class="form-group">  
+                        <label>結束日期</label>  
+                        <input type="date" id="endDate" required>  
+                    </div>  
+                    <div class="form-group">  
+                        <label>數量</label>  
+                        <input type="number" id="quantity" min="1" value="1" required>  
+                    </div>  
+                    <div class="form-group">  
+                        <label>期望付款方式 (文字記錄)</label>  
+                        <select id="paymentMethod" required>  
+                            <option value="現金 (Cash)">現金 (Cash)</option>  
+                            <option value="銀行轉帳 (Bank Transfer)">銀行轉帳 (Bank Transfer)</option>  
+                            <option value="支票 (Cheque)">支票 (Cheque)</option>  
+                        </select>  
+                    </div>  
+                    <div class="form-group">  
+                        <label>備註 (Notes)</label>  
+                        <textarea id="notes" rows="2" placeholder="如有其他需求請填寫..."></textarea>  
+                    </div>  
+                    <button type="submit" class="btn-primary" style="width: 100%;">送出租借申請</button>  
+                </form>  
+            </div>  
+  
+            <!-- 右側：歷史訂單 -->  
+            <div class="card" style="flex: 2; min-width: 400px;">  
+                <h3>我的租借紀錄</h3>  
+                <div style="overflow-x: auto;">  
+                    <table id="rentalTable">  
+                        <thead>  
+                            <tr>  
+                                <th>設備名稱</th>  
+                                <th>期間</th>  
+                                <th>數量</th>  
+                                <th>狀態</th>  
+                                <th>付款方式</th>  
+                            </tr>  
+                        </thead>  
+                        <tbody>  
+                            <!-- 動態載入 -->  
+                        </tbody>  
+                    </table>  
+                </div>  
+            </div>  
+        </div>  
+    </div>  
+  
+    <script src="supabase-init.js"></script>  
+    <script>  
+        let currentCustomerId = null;  
+  
+        // 1. 檢查登入與載入 (將設備載入獨立，避免互相卡住)  
+        async function checkAuthAndLoad() {  
+            const { data: { session } } = await supabaseClient.auth.getSession();  
+            if (!session) {  
+                window.location.href = 'login.html';  
+                return;  
+            }  
+  
+            const user = session.user;  
+              
+            // 【修復重點】獨立載入設備清單，無論客戶資料是否抓到，都要讓客人看到 NAS/USB 等選項  
+            loadEquipment();  
+  
+            // 讀取客戶資料  
+            const { data: customerData } = await supabaseClient  
+                .from('customers')  
+                .select('*')  
+                .eq('auth_user_id', user.id)  
+                .single();  
+  
+            if (customerData) {  
+                document.getElementById('userGreeting').innerText = `歡迎，${customerData.full_name}`;  
+                currentCustomerId = customerData.id;  
+                loadMyRentals();  
+            } else {  
+                document.getElementById('userGreeting').innerText = `歡迎，企業客戶`;  
+                document.querySelector('#rentalTable tbody').innerHTML = '<tr><td colspan="5">無法取得您的專屬紀錄</td></tr>';  
+            }  
+        }  
+  
+        // 2. 載入設備清單  
+        async function loadEquipment() {  
+            const select = document.getElementById('equipmentSelect');  
+            const { data, error } = await supabaseClient.from('equipment').select('*');  
+              
+            if (error) {  
+                select.innerHTML = '<option value="">(讀取失敗，請檢查資料庫權限)</option>';  
+                return;  
+            }  
+              
+            if (data && data.length > 0) {  
+                select.innerHTML = '<option value="">請選擇設備...</option>';  
+                data.forEach(item => {  
+                    const option = document.createElement('option');  
+                    option.value = item.id;  
+                    option.textContent = `${item.name} ($${item.daily_price}/日)`;  
+                    select.appendChild(option);  
+                });  
+            } else {  
+                select.innerHTML = '<option value="">(目前無設備，請管理員在資料庫執行 INSERT 指令)</option>';  
+            }  
+        }  
+  
+        // 3. 載入租借紀錄  
+        async function loadMyRentals() {  
+            if (!currentCustomerId) return;  
+            const tbody = document.querySelector('#rentalTable tbody');  
+            tbody.innerHTML = '<tr><td colspan="5">讀取中...</td></tr>';  
+  
+            const { data, error } = await supabaseClient  
+                .from('rentals')  
+                .select(`id, start_date, end_date, quantity, status, notes, equipment ( name )`)  
+                .eq('customer_id', currentCustomerId)  
+                .order('created_at', { ascending: false });  
+  
+            if (error || !data) {  
+                tbody.innerHTML = '<tr><td colspan="5">載入失敗</td></tr>';  
+                return;  
+            }  
+  
+            if (data.length === 0) {  
+                tbody.innerHTML = '<tr><td colspan="5">您尚未建立任何租借紀錄</td></tr>';  
+                return;  
+            }  
+  
+            tbody.innerHTML = '';  
+            data.forEach(rental => {  
+                const tr = document.createElement('tr');  
+                const eqName = rental.equipment ? rental.equipment.name : '已下架設備';  
+                const noteContent = rental.notes ? rental.notes.split('付款方式:')[1] || '無' : '無';  
+                  
+                tr.innerHTML = `  
+                    <td>${eqName}</td>  
+                    <td>${rental.start_date} ~ ${rental.end_date}</td>  
+                    <td>${rental.quantity}</td>  
+                    <td>${rental.status}</td>  
+                    <td>${noteContent}</td>  
+                `;  
+                tbody.appendChild(tr);  
+            });  
+        }  
+  
+        // 4. 提交新訂單  
+        document.getElementById('rentalForm').addEventListener('submit', async (e) => {  
+            e.preventDefault();  
+            const msg = document.getElementById('formMsg');  
+              
+            // 檢查日期邏輯  
+            const startDate = document.getElementById('startDate').value;  
+            const endDate = document.getElementById('endDate').value;  
+            if (new Date(endDate) < new Date(startDate)) {  
+                msg.className = 'alert error';  
+                msg.innerText = '結束日期不能早於開始日期！';  
+                return;  
+            }  
+  
+            msg.className = 'alert';  
+            msg.innerText = '送出中...';  
+  
+            if (!currentCustomerId) {  
+                msg.className = 'alert error';  
+                msg.innerText = '系統錯誤：找不到您的客戶身分，請重新登入。';  
+                return;  
+            }  
+  
+            const equipmentId = document.getElementById('equipmentSelect').value;  
+            const quantity = document.getElementById('quantity').value;  
+            const paymentMethod = document.getElementById('paymentMethod').value;  
+            const notesInput = document.getElementById('notes').value;  
+            const combinedNotes = `付款方式:${paymentMethod} | 客戶備註:${notesInput}`;  
+  
+            const { error } = await supabaseClient.from('rentals').insert([{  
+                customer_id: currentCustomerId,  
+                equipment_id: equipmentId,  
+                start_date: startDate,  
+                end_date: endDate,  
+                quantity: quantity,  
+                status: 'pending',  
+                payment_status: 'unpaid',  
+                notes: combinedNotes  
+            }]);  
+  
+            if (error) {  
+                msg.className = 'alert error';  
+                msg.innerText = '送出失敗：' + error.message;  
+            } else {  
+                msg.className = 'alert success';  
+                msg.innerText = '訂單建立成功！實際付款需線下安排。';  
+                document.getElementById('rentalForm').reset();  
+                loadMyRentals();  
+            }  
+        });  
+  
+        // 5. 登出  
+        document.getElementById('logoutBtn').addEventListener('click', async () => {  
+            await supabaseClient.auth.signOut();  
+            window.location.href = 'login.html';  
+        });  
+  
+        checkAuthAndLoad();  
+    </script>  
+</body>  
+</html>  

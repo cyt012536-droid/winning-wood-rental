@@ -1,0 +1,60 @@
+<!DOCTYPE html>  
+<html lang="zh-TW">  
+<head>  
+    <meta charset="UTF-8">  
+    <title>登入 - Winning Wood</title>  
+    <link rel="stylesheet" href="style.css">  
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>  
+</head>  
+<body>  
+    <header>  
+        <a href="index.html" class="logo">Winning Wood</a>  
+        <nav><a href="signup.html">註冊帳戶</a></nav>  
+    </header>  
+  
+    <div class="container" style="max-width: 400px;">  
+        <div class="card" style="margin-top: 50px;">  
+            <h2 style="text-align: center;">客戶登入</h2>  
+            <div id="msgBox" class="alert"></div>  
+              
+            <form id="loginForm">  
+                <div class="form-group">  
+                    <label>電子郵件</label>  
+                    <input type="email" id="email" required>  
+                </div>  
+                <div class="form-group">  
+                    <label>密碼</label>  
+                    <input type="password" id="password" required>  
+                </div>  
+                <button type="submit" class="btn-primary" style="width: 100%;">登入</button>  
+            </form>  
+        </div>  
+    </div>  
+  
+    <script src="supabase-init.js"></script>  
+    <script>  
+        supabaseClient.auth.getSession().then(({ data }) => {  
+            if (data.session) window.location.href = 'dashboard.html';  
+        });  
+  
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {  
+            e.preventDefault();  
+            const msgBox = document.getElementById('msgBox');  
+            msgBox.className = 'alert';  
+            msgBox.innerText = '登入中...';  
+  
+            const email = document.getElementById('email').value;  
+            const password = document.getElementById('password').value;  
+  
+            try {  
+                const { error } = await supabaseClient.auth.signInWithPassword({ email, password });  
+                if (error) throw error;  
+                window.location.href = 'dashboard.html';  
+            } catch (err) {  
+                msgBox.className = 'alert error';  
+                msgBox.innerText = '登入失敗：' + err.message;  
+            }  
+        });  
+    </script>  
+</body>  
+</html>  
