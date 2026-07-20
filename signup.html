@@ -29,10 +29,10 @@
                 </div>
                 <button type="submit" class="btn btn-large" style="width: 100%;">立即註冊</button>
                 
-                <p id="error-message" style="color: red; display: none; margin-top: 15px; text-align: center; font-size: 14px;"></p>
-                <p id="success-message" style="color: green; display: none; margin-top: 15px; text-align: center; font-size: 14px;">註冊成功！如果設定有開啟驗證，請前往信箱收信。</p>
+                <p id="error-message" style="color: red; display: none; margin-top: 15px; text-align: center; font-size: 14px; background-color: #fee; padding: 10px; border-radius: 4px;"></p>
+                <p id="success-message" style="color: green; display: none; margin-top: 15px; text-align: center; font-size: 14px; background-color: #eafcf1; padding: 10px; border-radius: 4px;">註冊成功！正在為您導向登入頁面...</p>
             </form>
-            <p style="text-align: center; margin-top: 20px;">已經有帳號？ <a href="login.html">按此登入</a></p>
+            <p style="text-align: center; margin-top: 20px;">已經有帳號？ <a href="login.html" style="color: #cba135;">按此登入</a></p>
         </div>
     </main>
 
@@ -56,21 +56,17 @@
             submitBtn.textContent = '處理中...';
             submitBtn.disabled = true;
 
-            // 呼叫 Supabase 註冊 API
-            const { data, error } = await supabase.auth.signUp({
-                email: email,
-                password: password
-            });
+            try {
+                // 【修復重點】：這裡改為 supabaseClient (對應 supabase-init.js 裡面的設定)
+                const { data, error } = await supabaseClient.auth.signUp({
+                    email: email,
+                    password: password
+                });
 
-            // 恢復按鈕狀態
-            submitBtn.textContent = '立即註冊';
-            submitBtn.disabled = false;
+                if (error) {
+                    throw error;
+                }
 
-            if (error) {
-                // 如果失敗，顯示錯誤訊息 (例如密碼太短、信箱已被註冊)
-                errorMsg.textContent = '註冊失敗：' + error.message;
-                errorMsg.style.display = 'block';
-            } else {
                 // 註冊成功
                 successMsg.style.display = 'block';
                 document.getElementById('signup-form').reset();
@@ -79,6 +75,15 @@
                 setTimeout(() => {
                     window.location.href = 'login.html';
                 }, 2000);
+
+            } catch (err) {
+                // 捕捉錯誤並顯示在畫面上，按鈕恢復原狀
+                errorMsg.textContent = '註冊失敗：' + err.message;
+                errorMsg.style.display = 'block';
+            } finally {
+                // 不論成功或失敗，都把按鈕解鎖
+                submitBtn.textContent = '立即註冊';
+                submitBtn.disabled = false;
             }
         });
     </script>
